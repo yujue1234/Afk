@@ -1,0 +1,32 @@
+#///////////////////////////
+# Cocos Creator 3D Project
+#///////////////////////////
+library/
+temp/
+local/
+build/
+profiles/
+native/
+extensions/build-plugin-template/node_modules/
+
+# 编辑器本地缓存（不参与版本管理）
+.creator/
+
+#//////////////////////////
+# NPM
+#//////////////////////////
+node_modules/
+
+#//////////////////////////
+# IDE
+#//////////////////////////
+.vscode/
+.idea/
+
+#//////////////////////////
+# 本地私有配置 / 日志
+#//////////////////////////
+project.private.config.json
+*.log
+.DS_Store
+Thumbs.db
