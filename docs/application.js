@@ -47,6 +47,12 @@ System.register([], function (_export, _context) {
                 // }
                 profiling: {
                   showFPS: this.showFPS
+                },
+                // 关闭"强行铺满窗口"（exactFitScreen），
+                // 让引擎跟随容器尺寸做标准适配：桌面端由 style.css 把容器锁成 9:16，
+                // 手机端自动全屏按设计分辨率（720x1280）适配，UI 不再被拉伸。
+                screen: {
+                  exactFitScreen: false
                 }
               }
             }).then(function () {

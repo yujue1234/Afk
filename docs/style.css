@@ -59,3 +59,20 @@ canvas {
   --safe-bottom: env(safe-area-inset-bottom);
   --safe-left: env(safe-area-inset-left);
 }
+
+/* ============================================================
+ * 桌面浏览器适配：把画布容器锁成 9:16（720x1280）手机比例并居中，
+ * 宽屏下两侧留黑边，UI 不再被拉伸错位；手机全屏时自动占满整屏。
+ * ============================================================ */
+html, body {
+  height: 100%;
+}
+
+#GameDiv {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(100vw, calc(100vh * 0.5625));   /* 720/1280 = 0.5625 */
+  height: min(100vh, calc(100vw / 0.5625));
+}
