@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FightWorld 数值平衡报告 v2 · 拉长版</title>
+<style>
+  :root{
+    --bg:#f7f4ee; --card:#ffffff; --ink:#2b2620; --ink2:#6b6257; --line:#e6dfd3;
+    --gold:#c8912f; --good:#2f9e6b; --bad:#d4574a; --warn:#d9862f; --blue:#3f7fd6; --purple:#8b5cf6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+       line-height:1.75;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1000px;margin:0 auto;padding:48px 28px 80px;}
+  header{border-bottom:3px solid var(--gold);padding-bottom:24px;margin-bottom:36px;}
+  h1{margin:0 0 8px;font-size:30px;letter-spacing:-.5px;}
+  .sub{color:var(--ink2);font-size:14px;}
+  h2{font-size:20px;margin:44px 0 16px;padding-left:12px;border-left:4px solid var(--gold);}
+  h3{font-size:15px;margin:26px 0 10px;color:var(--ink2);font-weight:600;}
+  p{margin:10px 0;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:22px 24px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.03);}
+  .lead{background:linear-gradient(135deg,#fffaf0,#fff);border:1px solid #f0e2c4;}
+  .lead strong{color:var(--gold);}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--line);}
+  th{background:#faf7f0;font-weight:600;font-size:13px;color:var(--ink2);
+     text-transform:uppercase;letter-spacing:.4px;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  code{background:#f2ede2;padding:2px 6px;border-radius:4px;font-size:13px;
+       font-family:"SF Mono",Consolas,monospace;}
+  .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;}
+  .t-bad{background:#fdecea;color:var(--bad);}
+  .t-good{background:#e8f7f0;color:var(--good);}
+  .t-warn{background:#fdf3e3;color:var(--warn);}
+  .t-blue{background:#eaf2fd;color:var(--blue);}
+  .t-purple{background:#f3edfe;color:var(--purple);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+  .ok{color:var(--good);font-weight:700;}
+  .no{color:#d9d2c5;font-weight:700;}
+  .heat td{text-align:center;padding:7px 3px;font-size:14px;}
+  .heat th{text-align:center;padding:8px 3px;}
+  .heat td.lbl{text-align:left;font-size:13px;white-space:nowrap;font-weight:600;}
+  .bar-wrap{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px;}
+  .bar-lbl{width:118px;flex:none;color:var(--ink2);}
+  .bar-track{flex:1;height:20px;background:#f0ebe1;border-radius:5px;overflow:hidden;display:flex;}
+  .bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#e2b45c,#c8912f);}
+  .bar-fill.old{background:linear-gradient(90deg,#cfc7b8,#b3a993);border-radius:5px 0 0 5px;}
+  .bar-fill.new{background:linear-gradient(90deg,#e2b45c,#c8912f);border-radius:0 5px 5px 0;}
+  .bar-val{width:64px;flex:none;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;}
+  .file{font-size:13px;color:var(--ink2);font-family:"SF Mono",Consolas,monospace;}
+  ul{margin:10px 0;padding-left:22px;}
+  li{margin:6px 0;}
+  .hl{background:#fff6dc;padding:1px 5px;border-radius:3px;font-weight:600;}
+  .foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+        color:var(--ink2);font-size:13px;}
+  .pill{display:inline-block;background:#f2ede2;color:var(--ink2);border-radius:6px;
+        padding:1px 7px;font-size:12px;font-family:"SF Mono",Consolas,monospace;}
+  .legend{font-size:12px;color:var(--ink2);margin-top:6px;}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>FightWorld 数值平衡报告 <span style="color:var(--gold)">v2 · 拉长版</span></h1>
+  <div class="sub">用脚本逐帧复现 BattleManager 战斗逻辑，反推关卡数值并回归验证 · 2026-09-11</div>
+</header>
+
+<div class="card lead">
+  <p style="margin-top:0"><strong>一句话结论：</strong>这一版把整体数值<span class="hl">拉长 ≈2.5 倍</span>，
+  品质台阶从 3 倍拉到 <span class="hl">4 倍</span>，强化从每级 +10% 提到 <span class="hl">+15%</span>，
+  暴击成长从满配 45% 拉到 <span class="hl">94%</span>。</p>
+  <p style="margin-bottom:0">结果是 <strong>8 个装备档位精确对应 8 个关卡</strong>：
+  穿第 N 档刚好能过第 N 关、打完只剩 <span class="hl">21~30% 血</span>，而第 N-1 档上去必败。
+  这就是"阶段性变强"——每一档都有明确的、只属于它的那一关。</p>
+</div>
+
+<h2>一、本轮 5 条需求 → 落地情况</h2>
+<div class="card">
+<table>
+  <tr><th style="width:24%">需求</th><th style="width:52%">实现方式</th><th style="width:24%">涉及文件</th></tr>
+  <tr>
+    <td><b>① 幸运小概率掉元宝</b></td>
+    <td>新增 <code>rollLuckyDiamond(luck)</code>：概率 = 幸运 × 1%，<b>封顶 30%</b>，触发掉 1 元宝。
+        战斗胜利时判定，掉落在结算文案里显示"幸运掉落 +1 元宝"。</td>
+    <td><span class="file">StageData.ts<br>BattleManager.ts</span></td>
+  </tr>
+  <tr>
+    <td><b>② 背包初始 6 件普通装</b></td>
+    <td>只在<b>全新账号</b>（本地无任何存档）时发放，6 个部位各 1 件普通。
+        通过新增的 <code>SaveManager.hasSaveData()</code> 判断，<b>不会覆盖老存档</b>。</td>
+    <td><span class="file">BagManager.ts<br>SaveManager.ts</span></td>
+  </tr>
+  <tr>
+    <td><b>③ 传说只出商店 / 50 元宝 / 刷新 5 元宝</b></td>
+    <td>掉落池里<b>彻底移除传说</b>（最高只到史诗）；<code>ShopItem</code> 重构为<b>双货币</b>，
+        传说固定 <code>50 元宝</code>，其余仍为金币；刷新费 <code>10 → 5 元宝</code>。
+        背包满时买的元宝会原路退回。</td>
+    <td><span class="file">StageData.ts<br>ShopItem.ts<br>ShopManager.ts<br>ShopCell.ts</span></td>
+  </tr>
+  <tr>
+    <td><b>④ 数值拉长 + 暴击拉大</b></td>
+    <td>部位基础值整体 ×≈2.5；品质倍率 <code>1/1.35/1.75/2.3/3 → 1/1.5/2.1/2.9/4</code>；
+        强化 <code>+10% → +15%</code>；武器暴击 3%→<b>4%</b>、项链 5%→<b>6%</b>（暴伤 30%）。
+        新增暴击率上限兜底 <code>CRIT_RATE_CAP = 1.0</code>。</td>
+    <td><span class="file">EquipData.ts<br>PlayerData.ts<br>TopBarManager.ts</span></td>
+  </tr>
+  <tr>
+    <td><b>⑤ 难度加大 + 阶段性变强</b></td>
+    <td>8 关怪物数值全部反解重算，目标"本档险胜、上一档必败"。
+        通关奖励同步上调（400~10000 金），失败保底 25%（下限 50 金）。</td>
+    <td><span class="file">StageData.ts</span></td>
+  </tr>
+</table>
+<p style="margin-bottom:0;font-size:13px;color:var(--ink2)">
+⚠️ 本次只改数值与逻辑，<b>不需要在 Cocos 里重新绑定任何节点或属性</b>。</p>
+</div>
+
+<h2>二、装备数值全表（改后）</h2>
+
+<div class="card">
+<h3 style="margin-top:0">单件装备数值</h3>
+<p style="font-size:13px;color:var(--ink2)">
+最终值 = 部位基础值 × 品质倍率 × (1 + 强化等级 × 15%)。下表为 <b>+0 未强化</b>状态。</p>
+
+<table class="heat">
+  <tr>
+    <th class="lbl">普通 <span class="pill">×1.0</span></th>
+    <th>攻击</th><th>防御</th><th>生命</th><th>暴击率</th><th>暴伤</th><th>幸运</th>
+  </tr>
+  <tr><td class="lbl">武器</td><td>25</td><td class="no">·</td><td class="no">·</td><td>4%</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">头盔</td><td class="no">·</td><td>10</td><td>100</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">胸甲</td><td class="no">·</td><td>16</td><td>180</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">项链</td><td>8</td><td class="no">·</td><td class="no">·</td><td>6%</td><td>30%</td><td>3</td></tr>
+  <tr><td class="lbl">靴子</td><td class="no">·</td><td>5</td><td>75</td><td class="no">·</td><td class="no">·</td><td>5</td></tr>
+  <tr><td class="lbl">盾牌</td><td class="no">·</td><td>22</td><td>145</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr style="background:#faf7f0"><td class="lbl"><b>合计</b></td><td><b>33</b></td><td><b>53</b></td><td><b>500</b></td><td><b>10%</b></td><td><b>30%</b></td><td><b>8</b></td></tr>
+</table>
+
+<table class="heat">
+  <tr>
+    <th class="lbl">优秀 <span class="pill">×1.5</span></th>
+    <th>攻击</th><th>防御</th><th>生命</th><th>暴击率</th><th>暴伤</th><th>幸运</th>
+  </tr>
+  <tr><td class="lbl">武器</td><td>37.5</td><td class="no">·</td><td class="no">·</td><td>6%</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">头盔</td><td class="no">·</td><td>15</td><td>150</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">胸甲</td><td class="no">·</td><td>24</td><td>270</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">项链</td><td>12</td><td class="no">·</td><td class="no">·</td><td>9%</td><td>45%</td><td>4.5</td></tr>
+  <tr><td class="lbl">靴子</td><td class="no">·</td><td>7.5</td><td>112.5</td><td class="no">·</td><td class="no">·</td><td>7.5</td></tr>
+  <tr><td class="lbl">盾牌</td><td class="no">·</td><td>33</td><td>217.5</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr style="background:#faf7f0"><td class="lbl"><b>合计</b></td><td><b>49.5</b></td><td><b>79.5</b></td><td><b>750</b></td><td><b>15%</b></td><td><b>45%</b></td><td><b>12</b></td></tr>
+</table>
+
+<table class="heat">
+  <tr>
+    <th class="lbl">稀有 <span class="pill">×2.1</span></th>
+    <th>攻击</th><th>防御</th><th>生命</th><th>暴击率</th><th>暴伤</th><th>幸运</th>
+  </tr>
+  <tr><td class="lbl">武器</td><td>52.5</td><td class="no">·</td><td class="no">·</td><td>8.4%</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">头盔</td><td class="no">·</td><td>21</td><td>210</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">胸甲</td><td class="no">·</td><td>33.6</td><td>378</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">项链</td><td>16.8</td><td class="no">·</td><td class="no">·</td><td>12.6%</td><td>63%</td><td>6.3</td></tr>
+  <tr><td class="lbl">靴子</td><td class="no">·</td><td>10.5</td><td>157.5</td><td class="no">·</td><td class="no">·</td><td>10.5</td></tr>
+  <tr><td class="lbl">盾牌</td><td class="no">·</td><td>46.2</td><td>304.5</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr style="background:#faf7f0"><td class="lbl"><b>合计</b></td><td><b>69.3</b></td><td><b>111.3</b></td><td><b>1050</b></td><td><b>21%</b></td><td><b>63%</b></td><td><b>16.8</b></td></tr>
+</table>
+
+<table class="heat">
+  <tr>
+    <th class="lbl">史诗 <span class="pill">×2.9</span></th>
+    <th>攻击</th><th>防御</th><th>生命</th><th>暴击率</th><th>暴伤</th><th>幸运</th>
+  </tr>
+  <tr><td class="lbl">武器</td><td>72.5</td><td class="no">·</td><td class="no">·</td><td>11.6%</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">头盔</td><td class="no">·</td><td>29</td><td>290</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">胸甲</td><td class="no">·</td><td>46.4</td><td>522</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">项链</td><td>23.2</td><td class="no">·</td><td class="no">·</td><td>17.4%</td><td>87%</td><td>8.7</td></tr>
+  <tr><td class="lbl">靴子</td><td class="no">·</td><td>14.5</td><td>217.5</td><td class="no">·</td><td class="no">·</td><td>14.5</td></tr>
+  <tr><td class="lbl">盾牌</td><td class="no">·</td><td>63.8</td><td>420.5</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr style="background:#faf7f0"><td class="lbl"><b>合计</b></td><td><b>95.7</b></td><td><b>153.7</b></td><td><b>1450</b></td><td><b>29%</b></td><td><b>87%</b></td><td><b>23.2</b></td></tr>
+</table>
+
+<table class="heat">
+  <tr>
+    <th class="lbl">传说 <span class="pill">×4.0</span></th>
+    <th>攻击</th><th>防御</th><th>生命</th><th>暴击率</th><th>暴伤</th><th>幸运</th>
+  </tr>
+  <tr><td class="lbl">武器</td><td>100</td><td class="no">·</td><td class="no">·</td><td>16%</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">头盔</td><td class="no">·</td><td>40</td><td>400</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">胸甲</td><td class="no">·</td><td>64</td><td>720</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">项链</td><td>32</td><td class="no">·</td><td class="no">·</td><td>24%</td><td>120%</td><td>12</td></tr>
+  <tr><td class="lbl">靴子</td><td class="no">·</td><td>20</td><td>300</td><td class="no">·</td><td class="no">·</td><td>20</td></tr>
+  <tr><td class="lbl">盾牌</td><td class="no">·</td><td>88</td><td>580</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr style="background:#faf7f0"><td class="lbl"><b>合计</b></td><td><b>132</b></td><td><b>212</b></td><td><b>2000</b></td><td><b>40%</b></td><td><b>120%</b></td><td><b>32</b></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">强化倍率（每级 +15%，最高 +9）</h3>
+<div class="grid2">
+<div>
+<div class="bar-wrap"><div class="bar-lbl">+0</div><div class="bar-track"><div class="bar-fill" style="width:43%"></div></div><div class="bar-val">×1.00</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+1</div><div class="bar-track"><div class="bar-fill" style="width:49%"></div></div><div class="bar-val">×1.15</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+2</div><div class="bar-track"><div class="bar-fill" style="width:55%"></div></div><div class="bar-val">×1.30</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+3</div><div class="bar-track"><div class="bar-fill" style="width:62%"></div></div><div class="bar-val">×1.45</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+4</div><div class="bar-track"><div class="bar-fill" style="width:68%"></div></div><div class="bar-val">×1.60</div></div>
+</div>
+<div>
+<div class="bar-wrap"><div class="bar-lbl">+5</div><div class="bar-track"><div class="bar-fill" style="width:74%"></div></div><div class="bar-val">×1.75</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+6</div><div class="bar-track"><div class="bar-fill" style="width:81%"></div></div><div class="bar-val">×1.90</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+7</div><div class="bar-track"><div class="bar-fill" style="width:87%"></div></div><div class="bar-val">×2.05</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+8</div><div class="bar-track"><div class="bar-fill" style="width:94%"></div></div><div class="bar-val">×2.20</div></div>
+<div class="bar-wrap"><div class="bar-lbl">+9</div><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><div class="bar-val">×2.35</div></div>
+</div>
+</div>
+<p style="margin-bottom:0;font-size:13px;color:var(--ink2)">
+强化只放大<b>装备部分</b>，不放大裸值（<code>maxHp = 560 + Σ装备.maxHp</code>）。
+单件 +9 的期望花费约 <b>13,887 金</b>（成功率 100/95/90/85/80/70/60/50/40%）。</p>
+</div>
+
+<h2>三、改前 / 改后对照</h2>
+<div class="card">
+<table>
+  <tr><th>装备档位</th><th class="num">改前 攻 / 防 / 血 / 暴击</th><th class="num">改后 攻 / 防 / 血 / 暴击</th><th class="num">倍数</th></tr>
+  <tr><td>裸装</td><td class="num">10 / 0 / 220 / 0%</td><td class="num"><b>25 / 0 / 560 / 0%</b></td><td class="num"><span class="tag t-good">血 ×2.55</span></td></tr>
+  <tr><td>6 件普通</td><td class="num">23 / 20 / 415 / 8%</td><td class="num"><b>58 / 53 / 1060 / 10%</b></td><td class="num"><span class="tag t-good">×2.55</span></td></tr>
+  <tr><td>6 件优秀</td><td class="num">28 / 27 / 482 / 11%</td><td class="num"><b>70 / 73 / 1235 / 14%</b></td><td class="num"><span class="tag t-good">×2.56</span></td></tr>
+  <tr><td>6 件稀有</td><td class="num">33 / 35 / 560 / 14%</td><td class="num"><b>83 / 93 / 1435 / 18%</b></td><td class="num"><span class="tag t-good">×2.56</span></td></tr>
+  <tr><td>6 件史诗</td><td class="num">40 / 46 / 668 / 18%</td><td class="num"><b>100 / 123 / 1710 / 23%</b></td><td class="num"><span class="tag t-good">×2.56</span></td></tr>
+  <tr><td>6 件史诗 +9</td><td class="num">67 / 87 / 1071 / 35%</td><td class="num"><b>201 / 289 / 3262 / 54%</b></td><td class="num"><span class="tag t-good">×3.05</span></td></tr>
+  <tr><td>6 件传说 +9</td><td class="num">84 / 114 / 1332 / 46%</td><td class="num"><b>258 / 374 / 4085 / 70%</b></td><td class="num"><span class="tag t-good">×3.07</span></td></tr>
+</table>
+<p style="margin-bottom:0;font-size:13px;color:var(--ink2)">
+上表"攻/防/血"为 <b>穿戴后的总属性</b>（= 裸值 + 6 件装备）。倍数按生命计算。
+强化档位的倍数更高（×3.05），因为强化倍率从 +10% 提到了 +15%。</p>
+</div>
+
+<h3>暴击成长曲线（本轮重点）</h3>
+<div class="card">
+<p style="font-size:13px;color:var(--ink2);margin-top:0">
+<span class="swatch" style="background:#b3a993"></span>灰 = 改前　
+<span class="swatch" style="background:var(--gold)"></span>金 = 改后</p>
+<div class="bar-wrap"><div class="bar-lbl">6 件普通</div><div class="bar-track"><div class="bar-fill old" style="width:8%"></div><div class="bar-fill new" style="width:10%"></div></div><div class="bar-val">10%</div></div>
+<div class="bar-wrap"><div class="bar-lbl">6 件优秀</div><div class="bar-track"><div class="bar-fill old" style="width:10.8%"></div><div class="bar-fill new" style="width:13.5%"></div></div><div class="bar-val">13.5%</div></div>
+<div class="bar-wrap"><div class="bar-lbl">6 件稀有</div><div class="bar-track"><div class="bar-fill old" style="width:14%"></div><div class="bar-fill new" style="width:17.5%"></div></div><div class="bar-val">17.5%</div></div>
+<div class="bar-wrap"><div class="bar-lbl">6 件史诗</div><div class="bar-track"><div class="bar-fill old" style="width:18.4%"></div><div class="bar-fill new" style="width:23%"></div></div><div class="bar-val">23.0%</div></div>
+<div class="bar-wrap"><div class="bar-lbl">6 史诗 +9</div><div class="bar-track"><div class="bar-fill old" style="width:35%"></div><div class="bar-fill new" style="width:54%"></div></div><div class="bar-val">54.0%</div></div>
+<div class="bar-wrap"><div class="bar-lbl">6 传说 +9</div><div class="bar-track"><div class="bar-fill old" style="width:45.6%"></div><div class="bar-fill new" style="width:70.5%"></div></div><div class="bar-val">70.5%</div></div>
+<p>同时暴伤也一起拉高（基础 150% 之上叠加）：</p>
+<div class="grid2">
+<table style="margin:0">
+  <tr><th>档位</th><th class="num">改前暴伤</th><th class="num">改后暴伤</th></tr>
+  <tr><td>6 件普通</td><td class="num">165%</td><td class="num"><b>180%</b></td></tr>
+  <tr><td>6 件优秀</td><td class="num">170%</td><td class="num"><b>190%</b></td></tr>
+  <tr><td>6 件稀有</td><td class="num">176%</td><td class="num"><b>202%</b></td></tr>
+  <tr><td>6 件史诗</td><td class="num">184%</td><td class="num"><b>219%</b></td></tr>
+  <tr><td>6 史诗 +9</td><td class="num">184%</td><td class="num"><b>219%</b></td></tr>
+  <tr><td>6 传说 +9</td><td class="num">195%</td><td class="num"><b>240%</b></td></tr>
+</table>
+<div>
+<p style="margin-top:0"><b>为什么给暴击加个 1.0 上限？</b></p>
+<p style="font-size:13px">暴击率是唯一同时吃<b>品质倍率</b>和<b>强化倍率</b>的属性，
+两个乘数叠起来会指数增长。6 件传说 +9 的武器单件就有 <code>16% × 2.35 = 37.6%</code>，
+项链 <code>24% × 2.35 = 56.4%</code>，全套理论值 94%——再往上就会溢出。</p>
+<p style="font-size:13px;margin-bottom:0">所以代码里加了 <code>CRIT_RATE_CAP = 1.0</code> 兜底，
+TopBar 显示也做了封顶，<b>后续再怎么调数值都不会出现"200% 暴击率"这种脏数据</b>。</p>
+</div>
+</div>
+</div>
+
+<h2>四、关卡难度表（全部重算）</h2>
+<div class="card">
+<table>
+  <tr>
+    <th>关</th><th>名称</th><th class="num">小怪血</th><th class="num">小怪攻</th>
+    <th class="num">Boss 血</th><th class="num">Boss 攻</th><th class="num">通关金币</th><th class="num">首通元宝</th><th>掉落池</th>
+  </tr>
+  <tr><td>1</td><td>矿洞入口</td><td class="num">125</td><td class="num">16</td><td class="num">325</td><td class="num">29</td><td class="num">400</td><td class="num">5</td><td><span class="tag t-blue">普通/优秀</span></td></tr>
+  <tr><td>2</td><td>迷雾沼泽</td><td class="num">315</td><td class="num">48</td><td class="num">820</td><td class="num">86</td><td class="num">700</td><td class="num">8</td><td><span class="tag t-blue">普通/优秀/稀有</span></td></tr>
+  <tr><td>3</td><td>骸骨荒原</td><td class="num">430</td><td class="num">70</td><td class="num">1120</td><td class="num">126</td><td class="num">1100</td><td class="num">12</td><td><span class="tag t-blue">优秀/稀有</span></td></tr>
+  <tr><td>4</td><td>熔岩裂谷</td><td class="num">580</td><td class="num">100</td><td class="num">1510</td><td class="num">180</td><td class="num">2200</td><td class="num">16</td><td><span class="tag t-purple">优秀/稀有/史诗</span></td></tr>
+  <tr><td>5</td><td>幽暗森林</td><td class="num">840</td><td class="num">150</td><td class="num">2185</td><td class="num">270</td><td class="num">3000</td><td class="num">22</td><td><span class="tag t-purple">稀有/史诗</span></td></tr>
+  <tr><td>6</td><td>霜冻废墟</td><td class="num">1285</td><td class="num">253</td><td class="num">3340</td><td class="num">455</td><td class="num">4200</td><td class="num">28</td><td><span class="tag t-purple">稀有/史诗</span></td></tr>
+  <tr><td>7</td><td>天空遗迹</td><td class="num">1800</td><td class="num">382</td><td class="num">4680</td><td class="num">688</td><td class="num">7500</td><td class="num">36</td><td><span class="tag t-purple">史诗</span></td></tr>
+  <tr><td>8</td><td>深渊魔域</td><td class="num">2395</td><td class="num">539</td><td class="num">6225</td><td class="num">970</td><td class="num">10000</td><td class="num">50</td><td><span class="tag t-purple">史诗</span></td></tr>
+</table>
+<p style="margin-bottom:0;font-size:13px;color:var(--ink2)">
+每关 3 只小怪 + 1 只 Boss；玩家攻速 1.0s / 怪物 1.5s，玩家先手。
+<span class="hl">掉落池最高只到史诗——传说只能去商店刷新买。</span>
+难度整体上调：第 8 关 Boss 从 900 血 / 113 攻 → <b>6225 血 / 970 攻</b>。</p>
+</div>
+
+<h2>五、升级路线验证（脚本模拟结果）</h2>
+<div class="card">
+<p style="margin-top:0">下表是逐帧模拟的真实通关结果。每一档<b>刚好通关一关</b>，多打一关就失败：</p>
+<table class="heat">
+  <tr>
+    <th class="lbl">装备档位</th>
+    <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th>
+    <th style="width:96px">本关残血</th>
+  </tr>
+  <tr><td class="lbl">裸装</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="num">30%</td></tr>
+  <tr><td class="lbl">6 件普通</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="num">23%</td></tr>
+  <tr><td class="lbl">6 件优秀</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="num">22%</td></tr>
+  <tr><td class="lbl">6 件稀有</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="num">23%</td></tr>
+  <tr><td class="lbl">6 件史诗</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="num">23%</td></tr>
+  <tr><td class="lbl">6 件史诗 +3</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="num">28%</td></tr>
+  <tr><td class="lbl">6 件史诗 +6</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="num">28%</td></tr>
+  <tr><td class="lbl">6 件史诗 +9</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="num">28%</td></tr>
+</table>
+
+<h3>"阶段性变强"验证：第 N 关，第 N 档能过、第 N-1 档必败</h3>
+<table>
+  <tr><th>关卡</th><th>通关档位</th><th class="num">残血</th><th>上一档挑战结果</th></tr>
+  <tr><td>第 2 关</td><td>6 件普通</td><td class="num">23%</td><td><span class="tag t-bad">裸装 · 失败</span></td></tr>
+  <tr><td>第 3 关</td><td>6 件优秀</td><td class="num">22%</td><td><span class="tag t-bad">6 普通 · 失败</span></td></tr>
+  <tr><td>第 4 关</td><td>6 件稀有</td><td class="num">23%</td><td><span class="tag t-bad">6 优秀 · 失败</span></td></tr>
+  <tr><td>第 5 关</td><td>6 件史诗</td><td class="num">23%</td><td><span class="tag t-bad">6 稀有 · 失败</span></td></tr>
+  <tr><td>第 6 关</td><td>6 件史诗 +3</td><td class="num">28%</td><td><span class="tag t-bad">6 史诗 · 失败</span></td></tr>
+  <tr><td>第 7 关</td><td>6 件史诗 +6</td><td class="num">28%</td><td><span class="tag t-bad">史诗 +3 · 失败</span></td></tr>
+  <tr><td>第 8 关</td><td>6 件史诗 +9</td><td class="num">28%</td><td><span class="tag t-bad">史诗 +6 · 失败</span></td></tr>
+</table>
+<p style="margin-bottom:0"><span class="tag t-good">全部通过</span>
+每关都是"卡着最后一口气赢"（残血 21~30%），既有紧张感，又不会真的过不去。</p>
+</div>
+
+<h2>六、经济节奏</h2>
+<div class="card">
+<p style="margin-top:0">按"刷当前能打的最高关"计算，升一档需要刷几把：</p>
+<div class="bar-wrap"><div class="bar-lbl">补 6 件优秀</div><div class="bar-track"><div class="bar-fill" style="width:65%"></div></div><div class="bar-val">3.9 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">补 6 件稀有</div><div class="bar-track"><div class="bar-fill" style="width:78%"></div></div><div class="bar-val">4.7 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">补 6 件史诗</div><div class="bar-track"><div class="bar-fill" style="width:85%"></div></div><div class="bar-val">5.1 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">史诗 +0 → +3</div><div class="bar-track"><div class="bar-fill" style="width:32%"></div></div><div class="bar-val">1.9 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">史诗 +3 → +6</div><div class="bar-track"><div class="bar-fill" style="width:70%"></div></div><div class="bar-val">4.2 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">史诗 +6 → +9</div><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><div class="bar-val">6.0 把</div></div>
+<p>整体是 <b>2~6 把升一档</b>的节奏：既有"再打一把就能买"的即时动力，也不会一次刷到吐。
+强化曲线刻意做成<b>递增</b>（+0→+3 只要 2 把，+6→+9 要 6 把），让最后一级更有分量。</p>
+<table>
+  <tr><th>阶段</th><th class="num">金币需求</th><th class="num">刷的关卡</th><th class="num">每把收益</th><th class="num">把数</th></tr>
+  <tr><td>补 6 件优秀</td><td class="num">2,722</td><td class="num">第 2 关</td><td class="num">700</td><td class="num"><b>3.9</b></td></tr>
+  <tr><td>补 6 件稀有</td><td class="num">5,199</td><td class="num">第 3 关</td><td class="num">1,100</td><td class="num"><b>4.7</b></td></tr>
+  <tr><td>补 6 件史诗</td><td class="num">11,142</td><td class="num">第 4 关</td><td class="num">2,200</td><td class="num"><b>5.1</b></td></tr>
+  <tr><td>史诗 +0 → +3</td><td class="num">5,795</td><td class="num">第 5 关</td><td class="num">3,000</td><td class="num"><b>1.9</b></td></tr>
+  <tr><td>史诗 +3 → +6</td><td class="num">17,575</td><td class="num">第 6 关</td><td class="num">4,200</td><td class="num"><b>4.2</b></td></tr>
+  <tr><td>史诗 +6 → +9</td><td class="num">45,150</td><td class="num">第 7 关</td><td class="num">7,500</td><td class="num"><b>6.0</b></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">防卡死兜底（这是最关键的一条）</h3>
+<p>模拟"裸装打第 1 关"：<b>27.1 秒通关，残血 168 / 560（30%）</b>。
+即使玩家一件装备都不买、一件都不穿，也能打通第 1 关拿到金币。</p>
+<p style="margin-bottom:0">再加上三重保险：
+<span class="tag t-good">开局 1500 金</span>
+<span class="tag t-good">白送 6 件普通</span>
+<span class="tag t-good">失败保底 25%（下限 50 金）</span>
+——<span class="hl">"打不过 → 没钱 → 更打不过"的死循环被彻底堵死</span>。</p>
+</div>
+
+<h2>七、幸运系统</h2>
+<div class="card">
+<p style="margin-top:0">幸运在本轮之前<b>完全没有作用</b>，现在给了三条收益（每点幸运）：</p>
+<table>
+  <tr><th>效果</th><th>公式</th><th>上限</th></tr>
+  <tr><td>金币收益加成</td><td>每点 +1%</td><td>无上限</td></tr>
+  <tr><td>掉落品质升一档概率</td><td>每点 +1%</td><td><b>50%</b></td></tr>
+  <tr><td><b>额外掉落元宝概率</b> <span class="tag t-purple">本轮新增</span></td><td>每点 +1%，触发得 1 元宝</td><td><b>30%</b></td></tr>
+</table>
+<p>幸运来源是项链（+3）和靴子（+5），随品质倍率放大：</p>
+<div class="bar-wrap"><div class="bar-lbl">6 件普通</div><div class="bar-track"><div class="bar-fill" style="width:24%"></div></div><div class="bar-val">幸运 8</div></div>
+<div class="bar-wrap"><div class="bar-lbl">6 件稀有</div><div class="bar-track"><div class="bar-fill" style="width:50%"></div></div><div class="bar-val">幸运 16.8</div></div>
+<div class="bar-wrap"><div class="bar-lbl">6 件传说</div><div class="bar-track"><div class="bar-fill" style="width:97%"></div></div><div class="bar-val">幸运 32</div></div>
+<p style="margin-bottom:0">
+幸运 8 → 金币 +8%、升档 8%、<b>掉元宝 8%</b>（平均每把多 0.08 元宝）；
+幸运 32 → 掉元宝概率正好顶到 <b>30% 上限</b>。
+配合"刷新商店 5 元宝"，<span class="hl">幸运流成为一条真实可行的刷元宝路线</span>。</p>
+</div>
+
+<h2>八、改动文件清单</h2>
+<div class="card">
+<table>
+  <tr><th style="width:30%">文件</th><th>改动</th></tr>
+  <tr><td class="file">EquipData.ts</td><td>部位基础值 ×≈2.5、品质倍率 1/1.5/2.1/2.9/4、强化 +15%、新增 <code>CRIT_RATE_CAP=1.0</code></td></tr>
+  <tr><td class="file">PlayerData.ts</td><td>初始金币 1500、元宝 200（测试用）、裸值 25 攻 / 560 血</td></tr>
+  <tr><td class="file">StageData.ts</td><td>8 关怪物数值全部重算、掉落池移除传说、新增 <code>rollLuckyDiamond()</code>、失败保底下限 50</td></tr>
+  <tr><td class="file">ShopItem.ts</td><td><b>整文件重写</b>：支持 <code>ShopCurrency</code>（金币 / 元宝）双货币，新增 <code>priceText</code></td></tr>
+  <tr><td class="file">ShopManager.ts</td><td>刷新费 10→5 元宝、传说固定 50 元宝、双货币购买 + 背包满退款</td></tr>
+  <tr><td class="file">ShopCell.ts</td><td>价格显示改用 <code>item.priceText</code>（自动区分金 / 元宝）</td></tr>
+  <tr><td class="file">BagManager.ts</td><td>新手 6 件普通装发放、暴击封顶、<b>修复重复定义 onDestroy 的真 bug</b></td></tr>
+  <tr><td class="file">SaveManager.ts</td><td>新增 <code>hasSaveData()</code>，用于判断是否发新手装备</td></tr>
+  <tr><td class="file">BattleManager.ts</td><td>胜利时调用幸运掉元宝，并显示在结算文案</td></tr>
+  <tr><td class="file">TopBarManager.ts</td><td>默认血量 220→560、暴击率显示封顶</td></tr>
+  <tr><td class="file">ForgeManager.ts</td><td>仅更新注释（费用公式、+15%）</td></tr>
+</table>
+</div>
+
+<h2>九、需要你确认的两件事</h2>
+<div class="card">
+<ul>
+  <li><b>新手 6 件普通装"只进背包、不自动穿戴"。</b>当前的实现是发放到背包里，需要玩家自己去背包点穿。
+      如果你想要"开局就是穿好的状态"，我改一行就能做到——告诉我你想要哪种。</li>
+  <li><b>刷新按钮文本会被代码覆盖。</b>你手动改过按钮文案，但 <code>ShopManager.onLoad</code> 里有一行
+      <code>this.refreshBtnLabel.string = \`刷新 ${REFRESH_COST}元宝\`</code> 会在运行时覆盖它（现在显示"刷新 5元宝"）。
+      如果想让手改的文案生效，把这一行注释掉即可。</li>
+  <li><b>商店出传说的权重目前是 2</b>（其余品质更高）。传说只有刷新才能拿到，
+      如果你觉得刷 10 次都见不到一件，可以把这个权重调高。</li>
+</ul>
+</div>
+
+<div class="foot">
+  分析脚本：<code>fightworld_balance/tune2.py</code>（关卡数值反解）、
+  <code>econ2.py</code>（经济模型）、<code>verify2.py</code>（5 项回归验证）、
+  <code>compare.py</code>（改前改后对照）、<code>sim.py</code>（战斗逻辑逐帧复现）。
+  本页所有数字均由脚本跑出，不是估算。
+</div>
+
+</div>
+</body>
+</html>

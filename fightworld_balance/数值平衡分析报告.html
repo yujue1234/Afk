@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FightWorld 数值平衡分析与调整方案</title>
+<style>
+  :root{
+    --bg:#f7f4ee; --card:#ffffff; --ink:#2b2620; --ink2:#6b6257; --line:#e6dfd3;
+    --gold:#c8912f; --good:#2f9e6b; --bad:#d4574a; --warn:#d9862f; --blue:#3f7fd6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+       line-height:1.75;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1000px;margin:0 auto;padding:48px 28px 80px;}
+  header{border-bottom:3px solid var(--gold);padding-bottom:24px;margin-bottom:36px;}
+  h1{margin:0 0 8px;font-size:30px;letter-spacing:-.5px;}
+  .sub{color:var(--ink2);font-size:14px;}
+  h2{font-size:20px;margin:44px 0 16px;padding-left:12px;border-left:4px solid var(--gold);}
+  h3{font-size:15px;margin:26px 0 10px;color:var(--ink2);font-weight:600;}
+  p{margin:10px 0;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:22px 24px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.03);}
+  .lead{background:linear-gradient(135deg,#fffaf0,#fff);border:1px solid #f0e2c4;}
+  .lead strong{color:var(--gold);}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);}
+  th{background:#faf7f0;font-weight:600;font-size:13px;color:var(--ink2);
+     text-transform:uppercase;letter-spacing:.4px;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  code{background:#f2ede2;padding:2px 6px;border-radius:4px;font-size:13px;
+       font-family:"SF Mono",Consolas,monospace;}
+  .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;}
+  .t-bad{background:#fdecea;color:var(--bad);}
+  .t-good{background:#e8f7f0;color:var(--good);}
+  .t-warn{background:#fdf3e3;color:var(--warn);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+  .ok{color:var(--good);font-weight:700;}
+  .no{color:#d9d2c5;font-weight:700;}
+  .heat td{text-align:center;padding:8px 4px;font-size:15px;}
+  .heat th{text-align:center;}
+  .heat td.lbl{text-align:left;font-size:13px;white-space:nowrap;font-weight:600;}
+  .bar-wrap{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px;}
+  .bar-lbl{width:110px;flex:none;color:var(--ink2);}
+  .bar-track{flex:1;height:20px;background:#f0ebe1;border-radius:5px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#e2b45c,#c8912f);}
+  .bar-val{width:62px;flex:none;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;}
+  .file{font-size:13px;color:var(--ink2);font-family:"SF Mono",Consolas,monospace;}
+  ul{margin:10px 0;padding-left:22px;}
+  li{margin:6px 0;}
+  .hl{background:#fff6dc;padding:1px 5px;border-radius:3px;font-weight:600;}
+  .foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+        color:var(--ink2);font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>FightWorld 数值平衡分析</h1>
+  <div class="sub">用脚本复现 BattleManager 的战斗逻辑，逐帧模拟后反推数值 · 2026-09-11</div>
+</header>
+
+<div class="card lead">
+  <p style="margin-top:0"><strong>一句话结论：</strong>问题不在"买绿装还是买紫装"，而是<strong>数值曲线整体错位</strong>——
+  原来的配置下，<span class="hl">不穿装备连第 1 关都打不过</span>，
+  而<span class="hl">穿上 6 件史诗也只能打到第 3 关</span>，必须满强化传说才能通第 8 关。
+  再叠加"5000 初始金币一次性给完 + 固定 1000 金/次的强化费"，
+  一旦前期买错，就会陷入"打不过 → 赚不到钱 → 更打不过"的死循环。</p>
+</div>
+
+<h2>一、你的三个问题，逐个拆解</h2>
+
+<h3>问题 1：为什么"6 件绿装"比"2 件紫装"强？</h3>
+<div class="card">
+<p>有两个原因，一个是<b>正常的</b>，一个是<b>数值写错了</b>。</p>
+<p><b>① 正常原因：槽位收益 &gt; 单件品质收益。</b>游戏有 6 个部位（武器/头盔/胸甲/项链/靴子/盾牌），
+属性是<b>跨槽位相加</b>的。空着的槽位等于白丢属性，所以"先把 6 个格子填满"永远比"堆 2 件极品"划算。
+这是正确的设计，不用改。</p>
+<p><b>② 错误原因：商店价格做了"两次品质加成"。</b>看原来的价格公式：</p>
+<p><code>price = power(已随品质上涨) × QUALITY_PRICE_MULT[品质]</code></p>
+<p>属性随品质涨 2.2 倍，价格倍率又乘了 8 倍 → <span class="hl">史诗实际比普通贵 17.6 倍，但属性只强 2.2 倍</span>。
+所以买紫装是纯亏。另外价格权重里 <code>critRate×1500</code>、<code>luck×30</code> 估得太高，
+导致<b>最没用的项链反而是最贵的装备</b>（普通项链 255 金 vs 普通头盔 100 金）。</p>
+<table>
+  <tr><th>方案</th><th class="num">花费</th><th class="num">攻击</th><th class="num">防御</th><th class="num">生命</th><th>能过</th></tr>
+  <tr><td>6 件普通（绿）</td><td class="num">982 金</td><td class="num">23</td><td class="num">20</td><td class="num">415</td><td><span class="tag t-good">第 2 关</span></td></tr>
+  <tr><td>2 件史诗（紫）</td><td class="num">2,924 金</td><td class="num">33</td><td class="num">14</td><td class="num">381</td><td><span class="tag t-warn">第 3 关</span></td></tr>
+</table>
+<p style="margin-bottom:0">改完之后：紫装 3 倍价格 ≈ 2.3 倍属性，<b>不再亏得离谱</b>，
+但"先铺满 6 格、再逐件升级"仍然是正确答案——这是合理的，不是 bug。</p>
+</div>
+
+<h3>问题 2：哪个属性更重要？</h3>
+<div class="card">
+<p>按"对通关的实际贡献"排序：</p>
+<table>
+  <tr><th>属性</th><th>作用</th><th>重要性</th><th>说明</th></tr>
+  <tr><td><b>攻击力</b></td><td>每 1 点 = 每 1 秒多打 1 点血</td><td><span class="tag t-good">★★★★★</span></td>
+      <td>唯一能<b>缩短战斗时间</b>的属性。打得越快，挨打次数越少，等于间接加血。<b>最强属性，没有之一。</b></td></tr>
+  <tr><td><b>生命上限</b></td><td>容错池</td><td><span class="tag t-good">★★★★</span></td>
+      <td>一场战斗要挨 20~30 次攻击，血量决定你能不能撑完一整关。</td></tr>
+  <tr><td><b>防御力</b></td><td>减伤 <code>100/(100+防御)</code></td><td><span class="tag t-warn">★★★</span></td>
+      <td>收益递减：44 防御 = 减伤 31%，100 防御才减 50%。前期有效，堆多了不划算。</td></tr>
+  <tr><td><b>暴击率 / 暴击伤害</b></td><td>期望增伤 <code>1 + 暴击率 × (暴伤-1)</code></td><td><span class="tag t-warn">★★</span></td>
+      <td>数值太小：8% 暴击率 + 167% 暴伤 = 只多打 5.4% 伤害。填完槽位再考虑。</td></tr>
+  <tr><td><b>幸运</b></td><td>原版<b>完全没有作用</b></td><td><span class="tag t-bad">★</span></td>
+      <td>代码里从头到尾没用到过，是个"白花钱"的属性。<b>本次已给它加上实际效果</b>（见下）。</td></tr>
+</table>
+<p style="margin-bottom:0"><b>一句话：攻击 &gt; 生命 &gt; 防御 &gt;&gt; 暴击 &gt; 幸运。</b>
+所以商店里<b>武器永远是第一优先</b>，其次补防御件撑血，项链可以最后买。</p>
+</div>
+
+<h3>问题 3：为什么会卡死？</h3>
+<div class="card">
+<p>模拟结果说明得很清楚——<b>原来的曲线里，裸装玩家连第 1 关都过不去</b>：</p>
+<div class="bar-wrap"><div class="bar-lbl">裸装</div><div class="bar-track"><div class="bar-fill" style="width:2%"></div></div><div class="bar-val">0 关</div></div>
+<p>而玩家身上只有 5000 金币的"一次性启动资金"，花完就没有了。如果这笔钱买了 2 件紫装（且不说紫装本身性价比就低），
+剩下 4 个槽位空着 → 打不过第 1 关 → 拿不到金币 → 永远打不过。<b>这就是你遇到的死循环。</b></p>
+<p style="margin-bottom:0">另外强化也是个大坑：原来固定 <b>1000 金/次</b>，
+而通一次第 1 关只有 300 金。单件装备强化到 +9 的期望花费是 <b>30,423 金</b>，
+一身 6 件要 <b>18 万金币</b>——比买一身史诗（17,526 金）还贵 10 倍。</p>
+</div>
+
+<h2>二、修改对照表</h2>
+
+<div class="card">
+<table>
+  <tr><th style="width:26%">文件</th><th style="width:37%">原来</th><th style="width:37%">改成</th></tr>
+  <tr>
+    <td><code class="file">PlayerData.ts</code></td>
+    <td>初始金币 5000<br>裸值生命 100</td>
+    <td><b>初始金币 800</b>（够买 4~5 件绿装，其余靠打）<br><b>裸值生命 220</b>（关键：100 血必死）</td>
+  </tr>
+  <tr>
+    <td><code class="file">EquipData.ts</code></td>
+    <td>武器攻击 10 / 暴击 2%<br>头盔 30 血、胸甲 50 血<br>盾牌 40 血<br>品质倍率 1/1.3/1.7/2.2/3</td>
+    <td>武器攻击 10 / 暴击 3%<br>头盔 40 血、胸甲 70 血、盾牌 55 血<br>项链攻击 2→3、暴伤 10%→15%<br><b>品质倍率 1/1.35/1.75/2.3/3</b>（更平滑）</td>
+  </tr>
+  <tr>
+    <td><code class="file">EquipData.ts</code><br><span class="file">（强化）</span></td>
+    <td>固定 <b>1000 金/次</b><br>成功率 100/90/80/65/50/35/25/15/10%</td>
+    <td><b>100 × (等级+1) 金币</b>（100~900 递增）<br>成功率 <b>100/95/90/80/70/60/50/40/30%</b><br>→ 单件 +9 期望花费从 3 万降到 9 千</td>
+  </tr>
+  <tr>
+    <td><code class="file">StageData.ts</code></td>
+    <td>怪物数值偏陡，裸装过不了第 1 关<br>通关金币 300~2200</td>
+    <td><b>全部重算</b>（见下方曲线表）<br>金币 200~3000，与装备价格对齐<br><b>新增失败保底金币</b>（通关奖励的 25%）</td>
+  </tr>
+  <tr>
+    <td><code class="file">ShopManager.ts</code></td>
+    <td>品质价格倍率 1/2/4/8/20<br>权重：攻击×10、暴击×1500、幸运×30</td>
+    <td><b>1/1.4/2/3/4.5</b>（收敛）<br>权重：<b>攻击×20、防御×12、生命×2、暴击×400、幸运×10</b></td>
+  </tr>
+  <tr>
+    <td><code class="file">BattleManager.ts</code></td>
+    <td>失败没有任何奖励<br>幸运值无作用</td>
+    <td><b>失败给 25% 金币安慰奖</b>（防卡死兜底）<br><b>幸运每点 +1% 金币、+1% 掉落升档概率</b></td>
+  </tr>
+</table>
+<p style="margin-bottom:0;font-size:13px;color:var(--ink2)">
+⚠️ 本次只改了数值和逻辑，<b>不需要在 Cocos 里重新绑定任何节点或属性</b>。</p>
+</div>
+
+<h2>三、新的升级路线（已模拟验证）</h2>
+
+<div class="card">
+<h3 style="margin-top:0">修改后：每一档装备刚好能推进一关</h3>
+<table class="heat">
+  <tr><th class="lbl">装备档位</th><th>攻</th><th>防</th><th>血</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
+  <tr><td class="lbl">裸装</td><td>10</td><td>0</td><td>220</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件普通</td><td>23</td><td>20</td><td>415</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件优秀</td><td>28</td><td>27</td><td>482</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件稀有</td><td>33</td><td>35</td><td>560</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件史诗</td><td>40</td><td>46</td><td>668</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件史诗 +3</td><td>49</td><td>60</td><td>802</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件史诗 +6</td><td>58</td><td>74</td><td>937</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件史诗 +9</td><td>67</td><td>87</td><td>1071</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+</table>
+
+<h3>修改前（对比）</h3>
+<table class="heat">
+  <tr><th class="lbl">装备档位</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
+  <tr><td class="lbl">裸装</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件普通</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件稀有</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件史诗</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件传说</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">·</td><td class="no">·</td><td class="no">·</td><td class="no">·</td></tr>
+  <tr><td class="lbl">6 件传说 +9</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+</table>
+<p style="margin-bottom:0;font-size:13px;color:var(--ink2)">
+改前：只有"满强化传说"这一种极端配置才能通全关，中间 4 个档位全是死路。
+改后：8 个档位对应 8 个关卡，每一档都有明确的推进目标。</p>
+</div>
+
+<h2>四、经济节奏</h2>
+<div class="card">
+<p>改后的金币循环（按"刷当前能打的最高关"计算）：</p>
+<div class="bar-wrap"><div class="bar-lbl">买齐 6 件普通</div><div class="bar-track"><div class="bar-fill" style="width:98%"></div></div><div class="bar-val">4.9 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">升到 6 优秀</div><div class="bar-track"><div class="bar-fill" style="width:54%"></div></div><div class="bar-val">2.7 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">升到 6 稀有</div><div class="bar-track"><div class="bar-fill" style="width:66%"></div></div><div class="bar-val">3.3 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">升到 6 史诗</div><div class="bar-track"><div class="bar-fill" style="width:96%"></div></div><div class="bar-val">4.8 把</div></div>
+<div class="bar-wrap"><div class="bar-lbl">升到 6 传说</div><div class="bar-track"><div class="bar-fill" style="width:90%"></div></div><div class="bar-val">4.5 把</div></div>
+<p style="margin-bottom:0">每一档都是 <b>3~5 把</b>的节奏：既有"再打一把就能买"的即时动力，
+也不会一次刷到吐。这比原来"史诗要 20 把"合理得多。</p>
+</div>
+
+<h2>五、还建议做的事（本次未改）</h2>
+<div class="card">
+<ul>
+  <li><b>商店刷新费 10 元宝偏贵。</b>元宝只有首通才给（每关 5~50），刷一次商店就要 10 元宝，等于首通奖励白白蒸发。
+      建议降到 <b>3~5 元宝</b>，或让元宝能通过其他途径产出。</li>
+  <li><b>关卡掉落和商店商品重合度高。</b>掉落和商店卖的是同一批装备，掉落的惊喜感会被稀释。
+      建议给掉落加"专属词条"（比如只从掉落里出的特殊品质），让打关卡本身更有价值。</li>
+  <li><b>暴击数值偏小。</b>现在暴击率最高 24%，暴伤 195%，期望增伤只有约 23%。
+      如果想让"暴击流"成为一条可选路线，建议把项链的暴击率提到 8%、暴伤提到 25%。</li>
+  <li><b>后期不能重复刷低关卡挂机。</b>目前金币只跟关卡挂钩，通关后没有持续收益。
+      若想延长生命周期，可以加"离线收益"或"每日挑战"。</li>
+</ul>
+</div>
+
+<div class="foot">
+  分析脚本：<code>fightworld_balance/sim.py</code>（战斗逻辑复现）、
+  <code>tune.py</code>（关卡数值求解）、<code>econ.py</code>（经济模型）、
+  <code>verify.py</code>（回归验证）。所有结论均由脚本跑出，非估算。
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "title": "打金勇士",
+  "sub": "FightWorld",
+  "tag": "Cocos Creator 3.8.8 · TypeScript · 微信小游戏",
+  "tag2": "放置 RPG · 8 关卡 · 6 部位 × 5 品质 · 强化 +9",
+  "parts": ["武器", "头盔", "胸甲", "项链", "靴子", "盾牌"],
+  "partFiles": ["sword", "helmet", "armor", "necklace", "boots", "shield"],
+  "qualities": ["普通", "优秀", "稀有", "史诗", "传说"],
+  "qualityFiles": ["common", "uncommon", "rare", "epic", "legendary"]
+}

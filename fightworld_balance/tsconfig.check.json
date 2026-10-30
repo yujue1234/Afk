@@ -1,0 +1,22 @@
+{
+  "//": "FightWorld 脚本类型检查用。放在项目外，避免污染 Cocos 工程目录。",
+  "//usage": "node <tsc.js> -p tsconfig.check.json",
+  "//note": "lib 只保留 ES2017（不要加 DOM，否则全局 Node 会与 cc 的 Node 冲突，满屏假报错）；console 用 check-shim.d.ts 补",
+  "extends": "F:/Cocos Dashboard/projects/FightWorld/temp/tsconfig.cocos.json",
+  "include": [
+    "F:/Cocos Dashboard/projects/FightWorld/assets/**/*.ts",
+    "F:/WorkBuddy/2026-09-01-22-49-13/fightworld_balance/check-shim.d.ts"
+  ],
+  "compilerOptions": {
+    "strict": false,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "lib": ["ES2017"],
+    "types": [
+      "F:/Cocos Dashboard/projects/FightWorld/temp/declarations/cc",
+      "F:/Cocos Dashboard/projects/FightWorld/temp/declarations/cc.custom-macro",
+      "F:/Cocos Dashboard/projects/FightWorld/temp/declarations/jsb",
+      "F:/Cocos Dashboard/projects/FightWorld/temp/declarations/cc.env"
+    ]
+  }
+}
